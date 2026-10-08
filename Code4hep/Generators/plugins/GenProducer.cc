@@ -1,6 +1,8 @@
 //---------------------------------------------------------------------------//
 //! \file Code4hep/Generator/plugins/GenProducer.cc
 //---------------------------------------------------------------------------//
+#include "Code4hep/PodioUtilities/assigningProductTo.h"
+
 #include "FWCore/AbstractServices/interface/RandomNumberGenerator.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"

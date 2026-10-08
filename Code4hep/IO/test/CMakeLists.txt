@@ -4,12 +4,24 @@
 # <bin name="testCode4hepIOCatch2" file="test_catch2_*.cc">
 c4h_add_executable(
     NAME testCode4hepIOCatch2
-    SOURCES test_catch2_*.cc
-    DEPS FWCore/TestProcessor
+    SOURCES test_catch2_*.cc Output2InputTestHelpers.cc
+    DEPS Code4hep/IO FWCore/TestProcessor FWCore/Framework FWCore/Common FWCore/Concurrency FWCore/ParameterSet FWCore/ParameterSetReader FWCore/PluginManager FWCore/ServiceRegistry DataFormats/Provenance Code4hep/PodioUtilities
     EXT_DEPS
+        Boost::program_options
         Python3::Python
         podio::podio
         podio::podioIO
         EDM4HEP::edm4hep
         Catch2::Catch2
+)
+
+add_test(
+    NAME testCode4hepIOCatch2
+    COMMAND $<TARGET_FILE:bin_testCode4hepIOCatch2>
+)
+set_tests_properties(testCode4hepIOCatch2 PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    LABELS "test"
+    ENVIRONMENT_MODIFICATION
+        "PYTHONPATH=path_list_prepend:${CMAKE_INSTALL_PREFIX}/python;PYTHONPATH=path_list_prepend:${CMAKE_BINARY_DIR}/python"
 )

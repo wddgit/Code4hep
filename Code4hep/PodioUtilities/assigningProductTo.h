@@ -8,8 +8,10 @@
     This is a customization point that modifies the behavior
     of calls to edm::Event::put and edm::Event::emplace if
     the product inherits from podio::CollectionBase.
-    If this header is included before those functions are
-    called, then the setID function will be called on the
+     Include this header before Event.h (and any other header
+     that includes Event.h) to make the declaration visible
+     at the template definition, without relying on ADL at
+     instantiation. The setID function will be called on the
     collection being put into the Event and it will insert
     a hash based on the ProductDescription into the collection.
     This is necessary for relations and links in podio

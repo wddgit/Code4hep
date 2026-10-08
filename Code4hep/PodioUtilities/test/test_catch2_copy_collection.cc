@@ -1,6 +1,7 @@
 #include "catch2/catch_all.hpp"
 #include "edm4hep/TrackCollection.h"
 #include "edm4hep/TrackData.h"
+#include "podio/CollectionIDTable.h"
 #include <unordered_map>
 
 #include "Code4hep/PodioUtilities/CollectionWrapperConverter.h"
@@ -21,6 +22,31 @@ namespace {
 };  // namespace
 
 TEST_CASE("Copy a podio::Collection ", "[podio_copy]") {
+  SECTION("LateIDAssignmentPreservesSelfRelationBuffers") {
+    edm4hep::TrackCollection tracks;
+    auto track = tracks.create();
+    track.setType(21);
+    track.addToTracks(track);
+    // Event::emplace assigns the ID after relations have been populated.
+    podio::CollectionIDTable ids;
+    auto const id = ids.add("testRelationsAndLinksProducer21");
+    tracks.setID(id);
+    REQUIRE(track.getTracks().front().getObjectID().collectionID == id);
+    auto copied = copyCollection(tracks);
+    REQUIRE(copied->getID() == id);
+    REQUIRE(copied->at(0).getObjectID().collectionID == id);
+    auto buffers = copied->getBuffers();
+    bool foundSelfID = false;
+    for (auto const& references : *buffers.references) {
+      for (auto const& reference : *references) {
+        REQUIRE(reference.collectionID == id);
+        REQUIRE(reference.index == 0);
+        foundSelfID = true;
+      }
+    }
+    REQUIRE(foundSelfID);
+  }
+
   SECTION("TrackCollection") {
     edm4hep::TrackCollection tracks;
     auto track = tracks.create();

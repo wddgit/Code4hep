@@ -5,6 +5,9 @@
 #include <typeinfo>
 #include <functional>
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
 
 #include "podio/CollectionBase.h"
 
@@ -26,6 +29,11 @@ namespace c4h {
     //Internally the buffer will be requested which is a non-const interface call
     std::unique_ptr<podio::CollectionBase> copy(podio::CollectionBase&) const;
 
+    using CollectionTargets = std::unordered_map<uint32_t, std::pair<std::string, podio::CollectionBase const*>>;
+    using CollectionNames = std::unordered_map<uint32_t, std::string>;
+    virtual void validateSubset(podio::CollectionBase const&, std::string const&,
+                                CollectionTargets const&, CollectionNames const&, bool useStoredIDs = false) const = 0;
+
     virtual std::unique_ptr<podio::CollectionBase> createEmpty() const = 0;
     virtual std::unique_ptr<edm::WrapperBase> createEmptyWrapper() const = 0;
 
@@ -33,6 +41,8 @@ namespace c4h {
 
   protected:
     static void throwMissingConverter(std::string_view iCollection, std::string_view iContainedType);
+    static void validateSubsetElement(std::string const&, size_t, bool, podio::ObjectID,
+                                      std::string_view, CollectionTargets const&, CollectionNames const&);
 
   private:
     virtual FromVectorToVector copier(std::string_view) const = 0;

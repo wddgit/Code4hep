@@ -22,6 +22,8 @@
 
 #include <utility>
 
+#include "Code4hep/PodioUtilities/assigningProductTo.h"
+
 #include "podio/LinkCollection.h"
 
 #include "edm4hep/MCParticleCollection.h"
@@ -33,6 +35,7 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
@@ -40,8 +43,6 @@
 #include "FWCore/Utilities/interface/EDPutToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
-
-#include "Code4hep/PodioUtilities/assigningProductTo.h"
 
 namespace c4h {
   class TestRelationsAndLinksProducer : public edm::global::EDProducer<> {
@@ -64,6 +65,7 @@ namespace c4h {
     const edm::EDGetTokenT<edm4hep::MCParticleCollection> mcParticlesGetToken_;
     const bool linkToCollectionsMadeInModule_;
     const int testValue_;
+    const bool verbose_;
   };
 
   TestRelationsAndLinksProducer::TestRelationsAndLinksProducer(const edm::ParameterSet& iConfig)
@@ -74,12 +76,19 @@ namespace c4h {
       reconstructedParticlesPutToken_{produces("reconstructedParticles")},
       mcParticlesPutToken_{produces("mcParticles")},
       linksPutToken_{produces("links")},
-      tracksGetToken_{consumes(iConfig.getUntrackedParameter<edm::InputTag>("tracks"))},
-      mcParticlesGetToken_{consumes(iConfig.getUntrackedParameter<edm::InputTag>("mcParticles"))},
-      linkToCollectionsMadeInModule_{iConfig.getUntrackedParameter<bool>("linkToCollectionsMadeInModule")},
-      testValue_{iConfig.getUntrackedParameter<int>("testValue")} {}
+      tracksGetToken_{consumes(iConfig.getParameter<edm::InputTag>("tracks"))},
+      mcParticlesGetToken_{consumes(iConfig.getParameter<edm::InputTag>("mcParticles"))},
+      linkToCollectionsMadeInModule_{iConfig.getParameter<bool>("linkToCollectionsMadeInModule")},
+      testValue_{iConfig.getParameter<int>("testValue")},
+      verbose_{iConfig.getUntrackedParameter<bool>("verbose")} {}
 
   void TestRelationsAndLinksProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup&) const {
+    if (verbose_) {
+      edm::LogInfo("TestRelationsAndLinksProducer")
+          << "TestRelationsAndLinksProducer::produce running for module label '"
+          << moduleDescription().moduleLabel() << "'";
+    }
+
     // First create all the collections and objects
     edm4hep::TrackCollection tracks;
     auto track = tracks.create();
@@ -137,10 +146,11 @@ namespace c4h {
 
   void TestRelationsAndLinksProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
-    desc.addUntracked<edm::InputTag>("tracks");
-    desc.addUntracked<edm::InputTag>("mcParticles");
-    desc.addUntracked<bool>("linkToCollectionsMadeInModule", false);
-    desc.addUntracked<int>("testValue");
+    desc.add<edm::InputTag>("tracks");
+    desc.add<edm::InputTag>("mcParticles");
+    desc.add<bool>("linkToCollectionsMadeInModule", false);
+    desc.add<int>("testValue");
+    desc.addUntracked<bool>("verbose", false)->setComment("If true, print a LogInfo message each time produce runs.");
     descriptions.addDefault(desc);
   }
 }  // namespace c4h

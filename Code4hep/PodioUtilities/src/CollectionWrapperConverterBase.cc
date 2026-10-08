@@ -58,11 +58,30 @@ namespace c4h {
     } else {
       assert(writeBufs.vectorMembers == nullptr or writeBufs.vectorMembers->empty());
     }
-    auto newCol = readBufs->createCollection(*readBufs, iCollection.isSubsetCollection());
+    auto newCol = readBufs->createCollection(std::move(*readBufs), iCollection.isSubsetCollection());
     newCol->prepareAfterRead();
-    newCol->setSubsetCollection(iCollection.isSubsetCollection());
+    // createCollection already sets subset state. Setting it again erases subset IDs.
     newCol->setID(iCollection.getID());
     return newCol;
+  }
+
+  void CollectionWrapperConverterBase::validateSubsetElement(
+      std::string const& name, size_t index, bool available, podio::ObjectID id,
+      std::string_view type, CollectionTargets const& targets, CollectionNames const& names) {
+    auto const target = targets.find(id.collectionID);
+    if (available && id.index >= 0 && target != targets.end() &&
+        target->second.second->getTypeName() == type &&
+        static_cast<size_t>(id.index) < target->second.second->size()) {
+      return;
+    }
+    auto const known = names.find(id.collectionID);
+    throw cms::Exception("InvalidSubset")
+        << "Subset collection '" << name << "' element index " << index
+        << " references target collection ID " << id.collectionID
+        << (known == names.end() ? " (name unknown)" : " ('" + known->second + "')")
+        << ", target element index " << id.index << ": "
+        << (!available ? "element is unavailable. " : "target is not a selected, present owning collection of the correct type with this element. ")
+        << "Keep the owning target collection and its payload, or drop the subset collection.";
   }
 
   void CollectionWrapperConverterBase::throwMissingConverter(std::string_view iCollection,

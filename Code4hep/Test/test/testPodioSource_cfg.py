@@ -67,26 +67,41 @@ process.testEventHeaderAnalyzer = cms.EDAnalyzer("c4h::TestEventHeaderAnalyzer",
 # Links and relations point into collections in the initial file
 # from the EDM4hep script.
 process.testRelationsAndLinksProducer11 = cms.EDProducer("c4h::TestRelationsAndLinksProducer",
-    tracks = cms.untracked.InputTag("TrackCollection"),
-    mcParticles = cms.untracked.InputTag("MCParticleCollection"),
-    testValue = cms.untracked.int32(11)
+    tracks = cms.InputTag("TrackCollection"),
+    mcParticles = cms.InputTag("MCParticleCollection"),
+    testValue = cms.int32(11)
 )
 
 # Links and relations point into collections created by
 # this process in the same module
 process.testRelationsAndLinksProducer21 = cms.EDProducer("c4h::TestRelationsAndLinksProducer",
-    tracks = cms.untracked.InputTag("NotUsed"),
-    mcParticles = cms.untracked.InputTag("NotUsed"),
-    linkToCollectionsMadeInModule = cms.untracked.bool(True),
-    testValue = cms.untracked.int32(21)
+    tracks = cms.InputTag("NotUsed"),
+    mcParticles = cms.InputTag("NotUsed"),
+    linkToCollectionsMadeInModule = cms.bool(True),
+    testValue = cms.int32(21)
 )
 
 # For tracks, links and relations point into collections
 # created by this process in a different module
 process.testRelationsAndLinksProducer31 = cms.EDProducer("c4h::TestRelationsAndLinksProducer",
-    tracks = cms.untracked.InputTag("testTracksProducer1"),
-    mcParticles = cms.untracked.InputTag("MCParticleCollection"),
-    testValue = cms.untracked.int32(31)
+    tracks = cms.InputTag("testTracksProducer1"),
+    mcParticles = cms.InputTag("MCParticleCollection"),
+    testValue = cms.int32(31)
+)
+
+# Products made by this module are stored only through the EDAlias
+# below. The stored podio collections keep this module's label in their
+# names, so collection IDs (and relations and links) never change, but
+# the products are accessible only through the alias label.
+process.testRelationsAndLinksProducer81 = cms.EDProducer("c4h::TestRelationsAndLinksProducer",
+    tracks = cms.InputTag("NotUsed"),
+    mcParticles = cms.InputTag("NotUsed"),
+    linkToCollectionsMadeInModule = cms.bool(True),
+    testValue = cms.int32(81)
+)
+
+process.aliasedRelations81 = cms.EDAlias(
+    testRelationsAndLinksProducer81 = cms.EDAlias.allProducts()
 )
 
 process.testRelationsAndLinks = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyzer",
@@ -129,10 +144,21 @@ process.testRelationsAndLinksRead31 = cms.EDAnalyzer("c4h::TestRelationsAndLinks
     expectedTestValueInMCParticle = cms.untracked.int32(42)
 )
 
+process.testRelationsAndLinksReadAlias81 = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyzer",
+    trackCollection = cms.untracked.InputTag("aliasedRelations81"),
+    recDqdxCollection = cms.untracked.InputTag("aliasedRelations81", "recDqdxs"),
+    reconstructedParticleCollection = cms.untracked.InputTag("aliasedRelations81", "reconstructedParticles"),
+    trackToMCParticleLinkCollection = cms.untracked.InputTag("aliasedRelations81", "links"),
+    expectedTrackTypeInTrackCollection = cms.untracked.int32(81),
+    expectedTrackTypeTrackInRelationOrLink = cms.untracked.int32(81),
+    expectedTestValueInMCParticle = cms.untracked.int32(81)
+)
+
 process.p = cms.Path(process.testTracksProducer1 +
                      process.testRelationsAndLinksProducer11 +
                      process.testRelationsAndLinksProducer21 +
-                     process.testRelationsAndLinksProducer31
+                     process.testRelationsAndLinksProducer31 +
+                     process.testRelationsAndLinksProducer81
 )
 
 process.e = cms.EndPath(process.test +
@@ -142,11 +168,17 @@ process.e = cms.EndPath(process.test +
                         process.testRelationsAndLinks +
                         process.testRelationsAndLinksRead11 +
                         process.testRelationsAndLinksRead21 +
-                        process.testRelationsAndLinksRead31
+                        process.testRelationsAndLinksRead31 +
+                        process.testRelationsAndLinksReadAlias81
 )
 
 process.out = cms.OutputModule("PodioOutputModule",
-    fileName = cms.untracked.string('testPodioSource.root')
+    fileName = cms.untracked.string('testPodioSource.root'),
+    # An EDAlias and its original cannot both be selected for output.
+    outputCommands = cms.untracked.vstring(
+        'keep *',
+        'drop *_testRelationsAndLinksProducer81_*_*'
+    )
 )
 
 process.outpath = cms.EndPath(process.out)

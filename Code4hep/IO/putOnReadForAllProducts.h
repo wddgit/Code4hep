@@ -11,13 +11,17 @@
 // Created:     11 December 2025
 
 #include "podio/Frame.h"
+#include <map>
+#include <string>
 
 #include "DataFormats/Provenance/interface/ProductRegistry.h"
 #include "FWCore/Framework/interface/EventPrincipal.h"
 
 namespace c4h {
+  void validateInputSubsets(podio::Frame const&);
   void putOnReadForAllProducts(podio::Frame const& podioFrame,
                                edm::ProductRegistry const& productRegistry,
-                               edm::EventPrincipal& eventPrincipal);
+                                edm::EventPrincipal& eventPrincipal,
+                                std::map<edm::BranchID, std::string> const& collectionNames);
 }  // namespace c4h
 #endif

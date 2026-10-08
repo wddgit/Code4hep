@@ -10,14 +10,57 @@
 #include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "DataFormats/Provenance/interface/ProductProvenance.h"
 
-#include "putOnReadForAllProducts.h"
-#include "TypeNameConversion.h"
+#include "Code4hep/IO/putOnReadForAllProducts.h"
+#include "Code4hep/IO/TypeNameConversion.h"
+#include "Code4hep/IO/ProductDescriptionMetadata.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 
 namespace c4h {
 
+  void validateInputSubsets(podio::Frame const& frame) {
+    // Reader/Frame hide raw buffers. Resolve first, then inspect null-safe typed
+    // handles and retained subset IDs before any collection is moved to the event.
+    auto const names = frame.getAvailableCollections();
+    bool hasSubsets = false;
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      hasSubsets |= collection && collection->isSubsetCollection();
+    }
+    if (!hasSubsets) {
+      return;
+    }
+    CollectionWrapperConverterBase::CollectionTargets targets;
+    CollectionWrapperConverterBase::CollectionNames knownNames;
+    auto const ids = frame.getCollectionIDTableForWrite();
+    for (size_t index = 0; index < ids.ids().size(); ++index) {
+      knownNames.emplace(ids.ids()[index], ids.names()[index]);
+    }
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      if (collection) {
+        knownNames.emplace(collection->getID(), name);
+        if (name != "EventHeader" && !collection->isSubsetCollection()) {
+          targets.emplace(collection->getID(), std::make_pair(name, collection));
+        }
+      }
+    }
+    auto factory = CollectionWrapperConverterBaseFactory::get();
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      if (collection && collection->isSubsetCollection()) {
+        try {
+          factory->create(std::string(collection->getTypeName()))->validateSubset(*collection, name, targets, knownNames, true);
+        } catch (cms::Exception const& ex) {
+          throw edm::Exception(edm::errors::FormatIncompatibility) << ex.what();
+        }
+      }
+    }
+  }
+
   void putOnReadForAllProducts(podio::Frame const& podioFrame,
                                edm::ProductRegistry const& productRegistry,
-                               edm::EventPrincipal& eventPrincipal) {
+                                edm::EventPrincipal& eventPrincipal,
+                                std::map<edm::BranchID, std::string> const& collectionNames) {
     auto factory = c4h::CollectionWrapperConverterBaseFactory::get();
 
     // It is important that are two iterations, one to get the
@@ -26,17 +69,22 @@ namespace c4h {
     // fails if these steps are done in the same iteration.
     for (auto const& iter : productRegistry.productList()) {
       auto const& productDescription = iter.second;
-      std::string const& moduleLabel = productDescription.moduleLabel();
-      podioFrame.get(moduleLabel);
+      if (productDescription.dropped()) {
+        continue;
+      }
+      podioFrame.get(productCollectionName(productDescription, collectionNames));
     }
 
     for (auto const& iter : productRegistry.productList()) {
       auto const& productDescription = iter.second;
-      std::string const& moduleLabel = productDescription.moduleLabel();
+      if (productDescription.dropped()) {
+        continue;
+      }
+      auto const& collectionName = productCollectionName(productDescription, collectionNames);
       std::optional<edm::ProductProvenance> productProvenance;
       std::unique_ptr<edm::WrapperBase> wrapperBase;
 
-      const podio::CollectionBase* constCollection = podioFrame.get(moduleLabel);
+      const podio::CollectionBase* constCollection = podioFrame.get(collectionName);
 
       // We need to construct a Wrapper<T> object to put in the edm::Event which
       // contains the collection.

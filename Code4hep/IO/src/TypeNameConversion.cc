@@ -1,4 +1,4 @@
-#include "TypeNameConversion.h"
+#include "Code4hep/IO/TypeNameConversion.h"
 
 #include <unordered_map>
 

@@ -6,3 +6,10 @@ c4h_add_test(
     NAME TestCode4hepTestPodioSource
     COMMAND run_podioSource.sh
 )
+
+# run_podioSource.sh checks the provenance in its output files with c4hProvDump.
+# Pass the path of the executable built in this tree, so the test does not depend
+# on PATH or on an installed copy.
+set_tests_properties(TestCode4hepTestPodioSource PROPERTIES
+    ENVIRONMENT_MODIFICATION "C4H_PROVDUMP=set:$<TARGET_FILE:bin_c4hProvDump>"
+)

@@ -20,6 +20,8 @@
 #include <memory>
 
 // user include files
+#include "Code4hep/PodioUtilities/assigningProductTo.h"
+
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/global/EDProducer.h"
 
@@ -31,8 +33,6 @@
 #include "FWCore/Utilities/interface/EDPutToken.h"
 
 #include "edm4hep/TrackCollection.h"
-
-#include "Code4hep/PodioUtilities/assigningProductTo.h"
 
 //
 // class declaration

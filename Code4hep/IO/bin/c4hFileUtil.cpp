@@ -28,7 +28,7 @@
 #include "podio/Reader.h"
 
 int main(int argc, char* argv[]) {
-  std::cout << "Executing podioFileUtil\n" << std::endl;
+  std::cout << "Executing c4hFileUtil\n" << std::endl;
 
   boost::program_options::options_description desc("Allowed options");
   desc.add_options()("help,h", "print help message")(
@@ -109,7 +109,7 @@ int main(int argc, char* argv[]) {
         podio::Frame frame = reader.readFrame(cat, eventIndex);
 
         std::cout << "\n    Available collections in first \"" << cat
-                  << "\" Frame (podioFileUtil only reads the first entry): " << std::endl;
+                  << "\" Frame (c4hFileUtil only reads the first entry): " << std::endl;
         for (const auto& collection : frame.getAvailableCollections()) {
           std::cout << "        collection name = " << std::left << std::setw(40) << collection;
           const podio::CollectionBase* collectionBase = frame.get(collection);
@@ -131,7 +131,7 @@ int main(int argc, char* argv[]) {
           }
 
           if (collection == "VertexCollection") {
-            std::cout << "            (podioFileUtil is not designed to print out the contents all data products or "
+            std::cout << "            (c4hFileUtil is not designed to print out the contents all data products or "
                          "data types."
                       << std::endl;
             std::cout << "            It prints some content from VertexCollection just to demonstrate it is possible "

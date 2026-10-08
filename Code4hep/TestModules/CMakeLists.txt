@@ -4,6 +4,7 @@
 c4h_add_plugin(
     SOURCES plugins/*.cc
     DEPS
+        FWCore/Common
         FWCore/Framework
         FWCore/ParameterSet
         FWCore/PluginManager
