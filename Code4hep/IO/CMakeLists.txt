@@ -4,6 +4,8 @@
 set(_c4h_shared
     DEPS
         FWCore/Framework
+        FWCore/ParameterSet
+        DataFormats/Provenance
         Code4hep/PodioUtilities
     EXT_DEPS
         podio::podio

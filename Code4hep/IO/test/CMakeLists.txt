@@ -4,8 +4,8 @@
 # <bin name="testCode4hepIOCatch2" file="test_catch2_*.cc">
 c4h_add_executable(
     NAME testCode4hepIOCatch2
-    SOURCES test_catch2_*.cc
-    DEPS FWCore/TestProcessor
+    SOURCES test_catch2_*.cc ../plugins/TypeNameConversion.cc
+    DEPS FWCore/TestProcessor FWCore/ParameterSet DataFormats/Provenance Code4hep/PodioUtilities
     EXT_DEPS
         Python3::Python
         podio::podio

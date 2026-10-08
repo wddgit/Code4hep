@@ -11,12 +11,14 @@
 
 #include <cstddef>
 #include <memory>
+#include <map>
 #include <string>
 
 #include "podio/Frame.h"
 #include "podio/Reader.h"
 
 #include "DataFormats/Provenance/interface/ProcessHistoryID.h"
+#include "DataFormats/Provenance/interface/BranchID.h"
 #include "DataFormats/Provenance/interface/ProcessHistoryRegistry.h"
 #include "DataFormats/Provenance/interface/RunLumiEventNumber.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
@@ -55,12 +57,17 @@ namespace c4h {
     InputSource::ItemType nextItemType_{InputSource::ItemType::IsInvalid};
     RunNumber_t runOffset_{invalidRunNumber};
     RunNumber_t nextRun_{invalidRunNumber};
-    // Podio files don't have a concept of lumis, so we just use a dummy value
-    // that is always 1
+    // Plain podio files use lumi 1; EDM metadata preserves the actual lumi.
     LuminosityBlockNumber_t nextLumi_{1U};
     EventNumber_t eventOffset_{invalidEventNumber};
     EventNumber_t nextEvent_{invalidEventNumber};
     ProcessHistoryID processHistoryID_;
+    ProcessHistoryID runHistoryID_;
+    ProcessHistoryID lumiHistoryID_;
+    ProcessHistoryID reducedRunHistoryID_;
+    ProcessHistoryRegistry fileHistories_;
+    bool hasProvenanceMetadata_ = false;
+    std::map<BranchID, std::string> collectionNames_;
     std::size_t numberOfEvents_{0};
     std::size_t nextEventIndex_{0};
     std::size_t eventIndexOfOpenFrame_{0};

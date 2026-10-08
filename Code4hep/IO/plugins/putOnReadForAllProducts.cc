@@ -12,12 +12,14 @@
 
 #include "putOnReadForAllProducts.h"
 #include "TypeNameConversion.h"
+#include "ProductDescriptionMetadata.h"
 
 namespace c4h {
 
   void putOnReadForAllProducts(podio::Frame const& podioFrame,
                                edm::ProductRegistry const& productRegistry,
-                               edm::EventPrincipal& eventPrincipal) {
+                                edm::EventPrincipal& eventPrincipal,
+                                std::map<edm::BranchID, std::string> const& collectionNames) {
     auto factory = c4h::CollectionWrapperConverterBaseFactory::get();
 
     // It is important that are two iterations, one to get the
@@ -26,17 +28,22 @@ namespace c4h {
     // fails if these steps are done in the same iteration.
     for (auto const& iter : productRegistry.productList()) {
       auto const& productDescription = iter.second;
-      std::string const& moduleLabel = productDescription.moduleLabel();
-      podioFrame.get(moduleLabel);
+      if (productDescription.dropped()) {
+        continue;
+      }
+      podioFrame.get(productCollectionName(productDescription, collectionNames));
     }
 
     for (auto const& iter : productRegistry.productList()) {
       auto const& productDescription = iter.second;
-      std::string const& moduleLabel = productDescription.moduleLabel();
+      if (productDescription.dropped()) {
+        continue;
+      }
+      auto const& collectionName = productCollectionName(productDescription, collectionNames);
       std::optional<edm::ProductProvenance> productProvenance;
       std::unique_ptr<edm::WrapperBase> wrapperBase;
 
-      const podio::CollectionBase* constCollection = podioFrame.get(moduleLabel);
+      const podio::CollectionBase* constCollection = podioFrame.get(collectionName);
 
       // We need to construct a Wrapper<T> object to put in the edm::Event which
       // contains the collection.
