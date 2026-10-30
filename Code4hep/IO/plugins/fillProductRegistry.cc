@@ -10,6 +10,7 @@
 #include "DataFormats/Provenance/interface/ProductDescription.h"
 #include "FWCore/Utilities/interface/BranchType.h"
 #include "FWCore/Utilities/interface/Exception.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/TypeID.h"
 
 namespace c4h {
@@ -63,11 +64,10 @@ namespace c4h {
         } else {
           throw cms::Exception("MissingCollection")
               << "podio::Frame::get returned a nullptr for the collection "
-              << "named\n'" << collection << "' on the first event of the file. If you know for\n"
-              << "certain that this collection will not be needed for any events in\n"
-              << "the file, you can set the ignoreMissingOnFirstEvent configuration\n"
-              << "option to true to ignore this exception. However, if any module tries\n"
-              << "to get such a collection a ProductNotFound exception will be thrown.\n";
+              << "named\n'" << collection << "' on the first event of the file. "
+              << "ignoreMissingOnFirstEvent skips registry inference for null collections, "
+              << "but any advertised collection without an event ProductDescription will still "
+              << "be rejected with FormatIncompatibility to prevent frame-owned relation targets.\n";
         }
       }
       std::string type_name(collectionBase->getTypeName());
@@ -76,9 +76,12 @@ namespace c4h {
         std::type_info const& collection_type_info = converter->typeID();
         typeID = edm::TypeID(collection_type_info);
       } catch (cms::Exception const&) {
-        throw cms::Exception("UnregisteredCollectionType")
-            << "The data product type '" << collectionBase->getTypeName() << "' is not registered with the\n"
-            << "C4H_COLLECTION macro so PodioSource cannot read it.";
+        throw edm::Exception(edm::errors::FormatIncompatibility)
+            << "Stored input collection '" << collection << "' of type '" << collectionBase->getTypeName()
+            << "' has no ProductDescription because its converter is not registered with C4H_COLLECTION. "
+            << "PodioSource cannot support hidden relation targets that remain frame-owned. "
+            << "Include a ProductDescription and registered collection converter for this collection, "
+            << "or remove it from the file.";
       }
 
       // This line of code just emphasizes to the reader that a podio collection

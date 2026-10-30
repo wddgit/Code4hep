@@ -12,10 +12,12 @@
 #include <cstddef>
 #include <memory>
 #include <map>
+#include <set>
 #include <string>
 
 #include "podio/Frame.h"
 #include "podio/Reader.h"
+#include "ParentageMetadata.h"
 
 #include "DataFormats/Provenance/interface/ProcessHistoryID.h"
 #include "DataFormats/Provenance/interface/BranchID.h"
@@ -51,8 +53,13 @@ namespace c4h {
     void logFileAction(char const* msg, std::string const& fileName) const;
 
     std::shared_ptr<ProductRegistry const> productRegistry() const { return productRegistry_; }
+    bool hasProvenanceMetadata() const { return hasProvenanceMetadata_; }
 
   private:
+    void validateCollectionOwnership() const;
+
+    std::string fileName_;
+    std::set<std::string> representedCollections_;
     std::unique_ptr<podio::Reader> podioReader_;
     InputSource::ItemType nextItemType_{InputSource::ItemType::IsInvalid};
     RunNumber_t runOffset_{invalidRunNumber};
@@ -67,6 +74,7 @@ namespace c4h {
     ProcessHistoryID reducedRunHistoryID_;
     ProcessHistoryRegistry fileHistories_;
     bool hasProvenanceMetadata_ = false;
+    ParentageDictionary parentages_;
     std::map<BranchID, std::string> collectionNames_;
     std::size_t numberOfEvents_{0};
     std::size_t nextEventIndex_{0};

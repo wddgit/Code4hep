@@ -20,6 +20,8 @@
 //         Created:  3 April 2026
 //
 
+#include <string>
+
 #include "podio/LinkCollection.h"
 
 #include "edm4hep/MCParticleCollection.h"
@@ -78,7 +80,12 @@ namespace c4h {
 
     // Test getting a track and then test getting another track
     // through a one-to-many relation in the Track.
-    for (const auto& track : iEvent.get(trackCollectionToken_)) {
+    auto const& trackCollection = iEvent.get(trackCollectionToken_);
+    for (const auto& track : trackCollection) {
+      if (!track.isAvailable()) {
+        throw cms::Exception("TestFailure")
+            << "TestRelationsAndLinksAnalyzer: unavailable track in collection ID " << trackCollection.getID();
+      }
       if (track.getType() != expectedTrackTypeInTrackCollection_) {
         throw cms::Exception("TestFailure")
             << "TestRelationsAndLinksAnalyzer: expected track type " << expectedTrackTypeInTrackCollection_
@@ -89,6 +96,26 @@ namespace c4h {
       if (tracksInTrack.empty()) {
         throw cms::Exception("TestFailure")
             << "TestRelationsAndLinksAnalyzer: expected track to have a track in its relation but it has none";
+      }
+      if (!tracksInTrack.front().isAvailable()) {
+        auto const sourceID = track.getObjectID();
+        auto buffers = const_cast<edm4hep::TrackCollection&>(trackCollection).getBuffers();
+        std::string ids;
+        if (buffers.references) {
+          for (auto const& reference : *buffers.references) {
+            ids += "[";
+            if (reference) {
+              for (auto const& id : *reference) {
+                ids += "(" + std::to_string(id.collectionID) + "," + std::to_string(id.index) + ")";
+              }
+            }
+            ids += "]";
+          }
+        }
+        throw cms::Exception("TestFailure")
+            << "TestRelationsAndLinksAnalyzer: unavailable track through Track.tracks; source collection ID "
+            << sourceID.collectionID << ", source element index " << sourceID.index
+            << ". Stored relation ObjectIDs (collection ID, element index): " << ids;
       }
       if (tracksInTrack.front().getType() != expectedTrackTypeTrackInRelationOrLink_) {
         throw cms::Exception("TestFailure")
@@ -101,6 +128,9 @@ namespace c4h {
     // Test a one-to-one relation by getting a track from a RecDqdx object.
     for (const auto& recDqdx : iEvent.get(recDqdxCollectionToken_)) {
       const edm4hep::Track trackFromOneToOneRelation = recDqdx.getTrack();
+      if (!trackFromOneToOneRelation.isAvailable()) {
+        throw cms::Exception("TestFailure") << "TestRelationsAndLinksAnalyzer: unavailable RecDqdx.track";
+      }
       if (trackFromOneToOneRelation.getType() != expectedTrackTypeTrackInRelationOrLink_) {
         throw cms::Exception("TestFailure")
             << "TestRelationsAndLinksAnalyzer: expected track type " << expectedTrackTypeTrackInRelationOrLink_
@@ -118,6 +148,9 @@ namespace c4h {
             << "TestRelationsAndLinksAnalyzer: expected RecoParticle to have a track in its relation but it has none";
       }
       for (const auto& trackFromOneToManyRelation : tracksInRecoParticle) {
+        if (!trackFromOneToManyRelation.isAvailable()) {
+          throw cms::Exception("TestFailure") << "TestRelationsAndLinksAnalyzer: unavailable ReconstructedParticle.tracks";
+        }
         if (trackFromOneToManyRelation.getType() != expectedTrackTypeTrackInRelationOrLink_) {
           throw cms::Exception("TestFailure")
               << "TestRelationsAndLinksAnalyzer: expected track type " << expectedTrackTypeTrackInRelationOrLink_
@@ -131,6 +164,9 @@ namespace c4h {
     for (auto const& link : iEvent.get(trackToMCParticleLinkCollectionToken_)) {
       auto const& track = link.get<edm4hep::Track>();
       auto const& mcParticle = link.get<edm4hep::MCParticle>();
+      if (!track.isAvailable() || !mcParticle.isAvailable()) {
+        throw cms::Exception("TestFailure") << "TestRelationsAndLinksAnalyzer: unavailable Track/MCParticle link endpoint";
+      }
       if (track.getType() != expectedTrackTypeTrackInRelationOrLink_) {
         throw cms::Exception("TestFailure")
             << "TestRelationsAndLinksAnalyzer: expected track type " << expectedTrackTypeTrackInRelationOrLink_

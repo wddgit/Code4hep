@@ -1,4 +1,5 @@
 #include "../plugins/ProcessHistoryMetadata.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 #include "catch2/catch_all.hpp"
 
 #include <algorithm>
@@ -45,7 +46,13 @@ TEST_CASE("Multiple ProcessHistories preserve configuration order, hardware and 
   std::map<edm::ProcessHistoryID, edm::ProcessHistory> histories{
       {first.id(), first}, {second.id(), second}, {empty.id(), empty}};
   podio::Frame frame;
-  c4h::putProcessHistories(frame, histories);
+  c4h::saveProcessHistories(frame, histories);
+  SECTION("Unlisted histories and other key types are ignored") {
+    frame.putParameter(historyKey(std::string(32, '3')), std::vector<std::string>{"ignored"});
+    frame.putParameter(historyKey(c4h::historyIDString(first.id())), 1);
+    frame.putParameter(c4h::processHistoriesVersionKey, "ignored");
+    frame.putParameter(c4h::processHistoriesIDsKey, 1.f);
+  }
   REQUIRE(frame.getAvailableCollections().empty());
   REQUIRE(frame.getParameter<std::vector<int>>(c4h::processHistoriesVersionKey) == std::vector<int>{1});
   std::vector<std::string> expectedIDs;
@@ -79,14 +86,16 @@ TEST_CASE("Default ProcessHistory ID encodes the computed empty history ID", s_t
   REQUIRE(c4h::historyIDString(edm::ProcessHistoryID{}) == c4h::historyIDString(empty.id()));
   REQUIRE(c4h::historyIDString(empty.id()) == "d41d8cd98f00b204e9800998ecf8427e");
   podio::Frame frame;
-  c4h::putProcessHistories(frame, {{edm::ProcessHistoryID{}, empty}});
+  c4h::saveProcessHistories(frame, {{edm::ProcessHistoryID{}, empty}});
   REQUIRE(frame.getParameter<std::vector<std::string>>(historyKey(c4h::historyIDString(empty.id()))) ==
           std::vector<std::string>{});
   edm::ProcessHistoryRegistry registry;
   REQUIRE(c4h::restoreProcessHistories(frame, registry));
   REQUIRE(registry.getMapped(empty.id()) != nullptr);
-  frame.putParameter(c4h::eventProcessHistoryKey, c4h::historyIDString(edm::ProcessHistoryID{}));
-  REQUIRE(c4h::readHistoryID(frame, c4h::eventProcessHistoryKey, registry) == empty.id());
+  for (auto const* key : {c4h::eventProcessHistoryKey, c4h::runProcessHistoryKey, c4h::lumiProcessHistoryKey}) {
+    frame.putParameter(key, c4h::historyIDString(edm::ProcessHistoryID{}));
+    REQUIRE(c4h::readHistoryID(frame, key, registry) == empty.id());
+  }
 }
 
 TEST_CASE("Entirely absent ProcessHistory metadata returns false, an empty snapshot returns true", s_tag) {
@@ -95,11 +104,18 @@ TEST_CASE("Entirely absent ProcessHistory metadata returns false, an empty snaps
   auto const existing = makeHistory("EXISTING");
   registry.registerProcessHistory(existing);
   SECTION("Absent") {}
+  SECTION("Orphan history without a version") {
+    frame.putParameter(historyKey(c4h::historyIDString(existing.id())), std::vector<std::string>{"ignored"});
+  }
+  SECTION("Wrong version type") {
+    frame.putParameter(c4h::processHistoriesVersionKey, "1");
+    frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{"invalid"});
+  }
   SECTION("Unrelated parameters") {
     frame.putParameter("unrelated", 1);
     frame.putParameter(c4h::eventProcessHistoryKey, c4h::historyIDString(existing.id()));
   }
-  SECTION("Empty snapshot") { c4h::putProcessHistories(frame, {}); }
+  SECTION("Empty snapshot") { c4h::saveProcessHistories(frame, {}); }
   auto const hasSnapshot = frame.getParameter<std::vector<int>>(c4h::processHistoriesVersionKey).has_value();
   REQUIRE(c4h::restoreProcessHistories(frame, registry) == hasSnapshot);
   REQUIRE(std::distance(registry.begin(), registry.end()) == 1);
@@ -111,37 +127,29 @@ TEST_CASE("Malformed ProcessHistory snapshots never partially register histories
   auto const id = c4h::historyIDString(history.id());
   auto const key = historyKey(id);
   podio::Frame frame;
-  c4h::putProcessHistories(frame, {{history.id(), history}});
+  c4h::saveProcessHistories(frame, {{history.id(), history}});
   auto fields = *frame.getParameter<std::vector<std::string>>(key);
   edm::ProcessHistoryRegistry registry;
   auto const existing = makeHistory("KEEP_EXISTING");
   registry.registerProcessHistory(existing);
 
   SECTION("Missing schema keys") {
-    auto const missing = GENERATE(0, 1, 2);
+    auto const missing = GENERATE(1, 2);
     frame = podio::Frame{};
-    if (missing != 0)
-      frame.putParameter(c4h::processHistoriesVersionKey, 1);
+    frame.putParameter(c4h::processHistoriesVersionKey, 1);
     if (missing != 1)
       frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{id});
     if (missing != 2)
       frame.putParameter(key, fields);
-  }
-  SECTION("Orphan history alone") {
-    frame = podio::Frame{};
-    frame.putParameter(key, fields);
   }
   SECTION("Unsupported version") { frame.putParameter(c4h::processHistoriesVersionKey, GENERATE(0, 2)); }
   SECTION("Version cardinality") {
     frame.putParameter(c4h::processHistoriesVersionKey, GENERATE(std::vector<int>{}, std::vector<int>{1, 1}));
   }
   SECTION("Wrong types") {
-    auto const wrong = GENERATE(0, 1, 2);
+    auto const wrong = GENERATE(1, 2);
     frame = podio::Frame{};
-    if (wrong == 0)
-      frame.putParameter(c4h::processHistoriesVersionKey, "1");
-    else
-      frame.putParameter(c4h::processHistoriesVersionKey, 1);
+    frame.putParameter(c4h::processHistoriesVersionKey, 1);
     if (wrong == 1)
       frame.putParameter(c4h::processHistoriesIDsKey, 1.f);
     else
@@ -168,6 +176,16 @@ TEST_CASE("Malformed ProcessHistory snapshots never partially register histories
     frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{id, otherID});
     frame.putParameter(historyKey(otherID), fields);
   }
+  SECTION("Empty-history sentinel with nonempty fields") {
+    auto const emptyID = c4h::historyIDString(edm::ProcessHistory{}.id());
+    frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{id, emptyID});
+    frame.putParameter(historyKey(emptyID), fields);
+  }
+  SECTION("All-zero ID with empty fields") {
+    auto const zeroID = std::string(32, '0');
+    frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{id, zeroID});
+    frame.putParameter(historyKey(zeroID), std::vector<std::string>{});
+  }
   SECTION("Configuration order changes ID") {
     std::rotate(fields.begin(), fields.begin() + 4, fields.end());
     frame.putParameter(key, fields);
@@ -192,8 +210,6 @@ TEST_CASE("Malformed ProcessHistory snapshots never partially register histories
   SECTION("Duplicate IDs") {
     frame.putParameter(c4h::processHistoriesIDsKey, std::vector<std::string>{id, id});
   }
-  SECTION("Unlisted history") { frame.putParameter(historyKey(std::string(32, '3')), fields); }
-  SECTION("Conflicting key types") { frame.putParameter(key, 1); }
 
   requireFormatError([&] { c4h::restoreProcessHistories(frame, registry); });
   REQUIRE(std::distance(registry.begin(), registry.end()) == 1);
@@ -206,16 +222,16 @@ TEST_CASE("Writing verifies map IDs and recomputes cached history IDs", s_tag) {
   auto const id = history.setProcessHistoryID();
   podio::Frame frame;
   SECTION("Mismatched map ID") {
-    requireFormatError([&] { c4h::putProcessHistories(frame, {{edm::ProcessHistoryID(std::string(32, '3')), history}}); });
+    requireFormatError([&] { c4h::saveProcessHistories(frame, {{edm::ProcessHistoryID(std::string(32, '3')), history}}); });
   }
   SECTION("Stale cached ID") {
     history[0] = edm::ProcessConfiguration("CHANGED", edm::ParameterSetID(std::string(32, '1')), "CMSSW_14_2_1",
                                            edm::HardwareResourcesDescription{});
     REQUIRE(history.id() == id);
-    requireFormatError([&] { c4h::putProcessHistories(frame, {{id, history}}); });
+    requireFormatError([&] { c4h::saveProcessHistories(frame, {{id, history}}); });
   }
   SECTION("Default ID with nonempty history") {
-    requireFormatError([&] { c4h::putProcessHistories(frame, {{edm::ProcessHistoryID{}, history}}); });
+    requireFormatError([&] { c4h::saveProcessHistories(frame, {{edm::ProcessHistoryID{}, history}}); });
   }
   REQUIRE(frame.getParameters().empty());
 }

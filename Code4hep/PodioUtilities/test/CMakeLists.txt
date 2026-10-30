@@ -13,3 +13,14 @@ c4h_add_executable(
         EDM4HEP::edm4hep
         Python3::Python
 )
+
+add_test(
+    NAME testCode4hepPodioUtilitiesCatch2
+    COMMAND $<TARGET_FILE:bin_testCode4hepPodioUtilitiesCatch2>
+)
+set_tests_properties(testCode4hepPodioUtilitiesCatch2 PROPERTIES
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    LABELS "test"
+    ENVIRONMENT_MODIFICATION
+        "PYTHONPATH=path_list_prepend:${CMAKE_INSTALL_PREFIX}/python;PYTHONPATH=path_list_prepend:${CMAKE_BINARY_DIR}/python"
+)

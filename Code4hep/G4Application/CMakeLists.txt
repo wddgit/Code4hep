@@ -32,3 +32,6 @@ c4h_add_plugin(
     DEPS Code4hep/G4Application
     ${_c4h_shared}
 )
+
+# Include the test targets in the child directories.
+c4h_auto_subdirectories()

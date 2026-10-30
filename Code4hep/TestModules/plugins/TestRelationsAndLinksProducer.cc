@@ -22,6 +22,8 @@
 
 #include <utility>
 
+#include "Code4hep/PodioUtilities/assigningProductTo.h"
+
 #include "podio/LinkCollection.h"
 
 #include "edm4hep/MCParticleCollection.h"
@@ -40,8 +42,6 @@
 #include "FWCore/Utilities/interface/EDPutToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
-
-#include "Code4hep/PodioUtilities/assigningProductTo.h"
 
 namespace c4h {
   class TestRelationsAndLinksProducer : public edm::global::EDProducer<> {

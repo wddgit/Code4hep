@@ -32,6 +32,6 @@ set(_c4h_shared
 c4h_add_plugin(
     NAME Code4hepGeneratorsPlugins
     SOURCES plugins/*.cc
-    DEPS Code4hep/Generators
+    DEPS Code4hep/Generators Code4hep/PodioUtilities
     ${_c4h_shared}
 )

@@ -48,6 +48,7 @@ namespace c4h {
     std::vector<std::string>::const_iterator currentFileIter_;
     std::vector<std::string>::const_iterator lastFileIter_;
     bool firstFile_{true};
+    bool firstFileHasProvenanceMetadata_{false};
     bool ignoreMissingOnFirstEvent_;
     RunNumber_t runOffset_;
     EventNumber_t eventOffset_;
@@ -69,6 +70,7 @@ namespace c4h {
     if (currentFileIter_ != inputFiles_.end()) {
       podioFile_ =
 	std::make_unique<PodioFile>(*currentFileIter_, processHistoryRegistryForUpdate(), ignoreMissingOnFirstEvent_, runOffset_, eventOffset_);
+      firstFileHasProvenanceMetadata_ = podioFile_->hasProvenanceMetadata();
     }
 
     std::vector<std::string> processOrder;
@@ -85,10 +87,10 @@ namespace c4h {
             "By default, PodioSource will throw an exception if a collection that Podio says "
             "is available is missing in the first event of a file. PodioSource needs all collections "
             "in the first event to initialize properly. If this parameter is set to true, the "
-            "source will ignore the missing collection entirely. The problem with ignoring "
-            "is that if a module tries to get such a collection from a later event, the Framework "
-            "will throw a ProductNotFound exception even when the collection is present "
-            "(or the Handle will be invalid if using the Handle interface). "
+            "source will skip registry inference for that null collection. Any frame advertising "
+            "a collection without a non-dropped event ProductDescription is rejected with "
+            "FormatIncompatibility to prevent frame-owned relation targets. This option does not "
+            "ignore unregistered collection converters. "
             "It could also cause a file merge failure if the problem is in the first file of a "
             "file merge process.");
     desc.addUntracked<unsigned int>("eventOffset", 0)->setComment("offset the starting event number");
@@ -127,6 +129,16 @@ namespace c4h {
       ++currentFileIter_;
       podioFile_ =
 	std::make_unique<PodioFile>(*currentFileIter_, processHistoryRegistryForUpdate(), ignoreMissingOnFirstEvent_, runOffset_, eventOffset_);
+      // Ordinary input does not replace the event's provenance reader. Mixing modes
+      // could retain a previous Code4hep event's reader and expose stale provenance.
+      if (podioFile_->hasProvenanceMetadata() != firstFileHasProvenanceMetadata_) {
+        throw Exception(errors::MismatchedInputFiles, "PodioSource::readFile_()")
+            << "First input file '" << inputFiles_.front() << "' uses "
+            << (firstFileHasProvenanceMetadata_ ? "Code4hep with provenance metadata" : "ordinary podio")
+            << ", but current input file '" << *currentFileIter_ << "' uses "
+            << (podioFile_->hasProvenanceMetadata() ? "Code4hep with provenance metadata" : "ordinary podio")
+            << ". Do not mix Code4hep files with provenance metadata and ordinary podio files in the same job.";
+      }
     }
 
     // make sure the new product registry is compatible with the main one

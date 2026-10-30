@@ -38,6 +38,33 @@ namespace c4h {
     std::unique_ptr<podio::CollectionBase> createEmpty() const final { return std::make_unique<T>(); }
     std::unique_ptr<edm::WrapperBase> createEmptyWrapper() const final { return std::make_unique<edm::Wrapper<T>>(); }
 
+    void validateSubset(podio::CollectionBase const& base, std::string const& name,
+                        CollectionTargets const& targets, CollectionNames const& names,
+                        bool useStoredIDs = false) const final {
+      if (!base.isSubsetCollection()) {
+        return;
+      }
+      auto const& collection = dynamic_cast<T const&>(base);
+      // UserDataCollection has scalar elements and cannot be a subset.
+      if constexpr (requires { collection[0].isAvailable(); collection[0].getObjectID(); }) {
+        // getBuffers does not prepare or dereference elements.
+        auto buffers = const_cast<T&>(collection).getBuffers();
+        for (size_t index = 0; index < collection.size(); ++index) {
+          auto element = collection[index];
+          auto const available = element.isAvailable();
+          auto id = element.getObjectID();
+          if (!available || useStoredIDs) {
+            // Read buffers retain the original ID even when resolution produced a null handle.
+            if (buffers.references && buffers.references->size() == 1 && buffers.references->front() &&
+                index < buffers.references->front()->size()) {
+              id = buffers.references->front()->at(index);
+            }
+          }
+          validateSubsetElement(name, index, available, id, base.getTypeName(), targets, names);
+        }
+      }
+    }
+
   private:
     CollectionWrapperConverterBase::FromVectorToVector copier(std::string_view iName) const final {
       auto itFound = copiers().find(iName);

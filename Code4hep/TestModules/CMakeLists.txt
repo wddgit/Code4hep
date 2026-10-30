@@ -15,3 +15,6 @@ c4h_add_plugin(
         EDM4HEP::edm4hep
         Python3::Python
 )
+
+# Include the test targets in the child directories.
+c4h_auto_subdirectories()

@@ -13,3 +13,16 @@ c4h_add_executable(
         podio::podioIO
         EDM4HEP::edm4hep
 )
+
+c4h_add_executable(
+    NAME c4hProvDump
+    SOURCES c4hProvDump.cpp ProvDump.cc
+        ../plugins/ParameterSetMetadata.cc ../plugins/ProcessHistoryMetadata.cc
+        ../plugins/ProductDescriptionMetadata.cc ../plugins/TypeNameConversion.cc
+        ../plugins/ParentageMetadata.cc
+    DEPS FWCore/ParameterSet DataFormats/Provenance Code4hep/PodioUtilities
+    EXT_DEPS
+        Boost::program_options
+        podio::podio
+        podio::podioIO
+)

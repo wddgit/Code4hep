@@ -13,8 +13,49 @@
 #include "putOnReadForAllProducts.h"
 #include "TypeNameConversion.h"
 #include "ProductDescriptionMetadata.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 
 namespace c4h {
+
+  void validateInputSubsets(podio::Frame const& frame) {
+    // Reader/Frame hide raw buffers. Resolve first, then inspect null-safe typed
+    // handles and retained subset IDs before any collection is moved to the event.
+    auto const names = frame.getAvailableCollections();
+    bool hasSubsets = false;
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      hasSubsets |= collection && collection->isSubsetCollection();
+    }
+    if (!hasSubsets) {
+      return;
+    }
+    CollectionWrapperConverterBase::CollectionTargets targets;
+    CollectionWrapperConverterBase::CollectionNames knownNames;
+    auto const ids = frame.getCollectionIDTableForWrite();
+    for (size_t index = 0; index < ids.ids().size(); ++index) {
+      knownNames.emplace(ids.ids()[index], ids.names()[index]);
+    }
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      if (collection) {
+        knownNames.emplace(collection->getID(), name);
+        if (name != "EventHeader" && !collection->isSubsetCollection()) {
+          targets.emplace(collection->getID(), std::make_pair(name, collection));
+        }
+      }
+    }
+    auto factory = CollectionWrapperConverterBaseFactory::get();
+    for (auto const& name : names) {
+      auto const* collection = frame.get(name);
+      if (collection && collection->isSubsetCollection()) {
+        try {
+          factory->create(std::string(collection->getTypeName()))->validateSubset(*collection, name, targets, knownNames, true);
+        } catch (cms::Exception const& ex) {
+          throw edm::Exception(edm::errors::FormatIncompatibility) << ex.what();
+        }
+      }
+    }
+  }
 
   void putOnReadForAllProducts(podio::Frame const& podioFrame,
                                edm::ProductRegistry const& productRegistry,

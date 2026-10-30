@@ -1,6 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-process = cms.Process("TEST")
+process = cms.Process("TEST2")
 
 process.load("FWCore.MessageService.MessageLogger_cfi")
 
@@ -94,8 +94,8 @@ process.testRelationsAndLinksProducer61 = cms.EDProducer("c4h::TestRelationsAndL
 # Links and relations point into collections created by
 # the previous process
 process.testRelationsAndLinksProducer71 = cms.EDProducer("c4h::TestRelationsAndLinksProducer",
-    tracks = cms.untracked.InputTag("testRelationsAndLinksProducer11"),
-    mcParticles = cms.untracked.InputTag("testRelationsAndLinksProducer11mcParticles"),
+    tracks = cms.untracked.InputTag("testRelationsAndLinksProducer11", "", "TEST"),
+    mcParticles = cms.untracked.InputTag("testRelationsAndLinksProducer11", "mcParticles", "TEST"),
     testValue = cms.untracked.int32(71)
 )
 
@@ -110,30 +110,37 @@ process.testRelationsAndLinks = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyz
 )
 
 process.testRelationsAndLinksRead11 = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyzer",
-    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11"),
-    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11recDqdxs"),
-    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11reconstructedParticles"),
-    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11links"),
+    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11", "", "TEST"),
+    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11", "recDqdxs", "TEST"),
+    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11", "reconstructedParticles", "TEST"),
+    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer11", "links", "TEST"),
     expectedTrackTypeInTrackCollection = cms.untracked.int32(11),
     expectedTrackTypeTrackInRelationOrLink = cms.untracked.int32(42),
     expectedTestValueInMCParticle = cms.untracked.int32(42)
 )
 
 process.testRelationsAndLinksRead21 = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyzer",
-    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21"),
-    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21recDqdxs"),
-    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21reconstructedParticles"),
-    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21links"),
+    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "", "TEST"),
+    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "recDqdxs", "TEST"),
+    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "reconstructedParticles", "TEST"),
+    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "links", "TEST"),
     expectedTrackTypeInTrackCollection = cms.untracked.int32(21),
     expectedTrackTypeTrackInRelationOrLink = cms.untracked.int32(21),
     expectedTestValueInMCParticle = cms.untracked.int32(21)
 )
 
+process.testRelationsAndLinksRead21NoProcess = process.testRelationsAndLinksRead21.clone(
+    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21"),
+    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "recDqdxs"),
+    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "reconstructedParticles"),
+    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer21", "links")
+)
+
 process.testRelationsAndLinksRead31 = cms.EDAnalyzer("c4h::TestRelationsAndLinksAnalyzer",
-    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31"),
-    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31recDqdxs"),
-    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31reconstructedParticles"),
-    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31links"),
+    trackCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31", "", "TEST"),
+    recDqdxCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31", "recDqdxs", "TEST"),
+    reconstructedParticleCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31", "reconstructedParticles", "TEST"),
+    trackToMCParticleLinkCollection = cms.untracked.InputTag("testRelationsAndLinksProducer31", "links", "TEST"),
     expectedTrackTypeInTrackCollection = cms.untracked.int32(31),
     expectedTrackTypeTrackInRelationOrLink = cms.untracked.int32(0),
     expectedTestValueInMCParticle = cms.untracked.int32(42)
@@ -194,6 +201,7 @@ process.e = cms.EndPath(process.test +
                         process.testRelationsAndLinks +
                         process.testRelationsAndLinksRead11 +
                         process.testRelationsAndLinksRead21 +
+                        process.testRelationsAndLinksRead21NoProcess +
                         process.testRelationsAndLinksRead31 +
                         process.testRelationsAndLinksRead41 +
                         process.testRelationsAndLinksRead51 +

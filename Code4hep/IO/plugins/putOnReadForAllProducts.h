@@ -18,6 +18,7 @@
 #include "FWCore/Framework/interface/EventPrincipal.h"
 
 namespace c4h {
+  void validateInputSubsets(podio::Frame const&);
   void putOnReadForAllProducts(podio::Frame const& podioFrame,
                                edm::ProductRegistry const& productRegistry,
                                 edm::EventPrincipal& eventPrincipal,

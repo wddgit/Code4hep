@@ -29,3 +29,6 @@ c4h_add_plugin(
     EXT_DEPS ROOT::Geom
     ${_c4h_shared}
 )
+
+# Include the test targets in the child directories.
+c4h_auto_subdirectories()

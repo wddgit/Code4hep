@@ -20,3 +20,6 @@ c4h_add_plugin(
     SOURCES plugins/*.cc
     ${_c4h_shared}
 )
+
+# Include the utility and test targets in the child directories.
+c4h_auto_subdirectories()

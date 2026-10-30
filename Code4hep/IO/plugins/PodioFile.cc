@@ -13,6 +13,7 @@
 #include "ParameterSetMetadata.h"
 #include "ProductDescriptionMetadata.h"
 #include "ProcessHistoryMetadata.h"
+#include "ParentageProvenanceReader.h"
 #include <charconv>
 
 #include "DataFormats/Provenance/interface/EventAuxiliary.h"
@@ -41,6 +42,7 @@ namespace c4h {
                        bool ignoreMissingOnFirstEvent,
 		       RunNumber_t runOffset,
 		       EventNumber_t eventOffset) {
+    fileName_ = fileName;
     runOffset_ = runOffset;
     eventOffset_ = eventOffset;
     try {
@@ -63,10 +65,18 @@ namespace c4h {
         restoreParameterSets(metadata);
         auto products = restoreProductDescriptions(metadata, collectionNames_);
         auto hasHistories = restoreProcessHistories(metadata, fileHistories_);
+        auto parentages = ParentageDictionary::restore(metadata);
         if (bool(products) != hasHistories) {
           throw Exception(errors::FormatIncompatibility) << "Incomplete EDM product/process provenance metadata";
         }
         hasProvenanceMetadata_ = hasHistories;
+        if (hasProvenanceMetadata_ && !parentages) {
+          throw Exception(errors::FormatIncompatibility) << "Missing Code4hep parentage dictionary";
+        }
+        if (parentages) {
+          parentages_ = std::move(*parentages);
+          parentages_.registerParentages();
+        }
         if (products) {
           std::vector<std::string> processOrder;
           processingOrderMerge(fileHistories_, processOrder);
@@ -109,8 +119,44 @@ namespace c4h {
     }
 
     if (!hasProvenanceMetadata_) {
-      auto productRegistry = c4h::fillProductRegistry(frame_, processNameForInputProducts, ignoreMissingOnFirstEvent);
-      productRegistry_.reset(productRegistry.release());
+      try {
+        auto productRegistry = c4h::fillProductRegistry(frame_, processNameForInputProducts, ignoreMissingOnFirstEvent);
+        productRegistry_.reset(productRegistry.release());
+      } catch (cms::Exception& ex) {
+        ex.addContext("Inferring EDM products from podio file '" + fileName + "'");
+        throw;
+      }
+    }
+    for (auto const& entry : productRegistry_->productList()) {
+      auto const& description = entry.second;
+      if (!description.dropped() && description.branchType() == edm::InEvent) {
+        representedCollections_.insert(productCollectionName(description, collectionNames_));
+      }
+    }
+    validateCollectionOwnership();
+  }
+
+  void PodioFile::validateCollectionOwnership() const {
+    // Reader has no file-wide collection inventory contract. Check raw and
+    // unpacked names on every frame, before getting products or moving them.
+    for (auto const& name : frame_.getAvailableCollections()) {
+      if (name != "EventHeader" && !representedCollections_.count(name)) {
+        throw Exception(errors::FormatIncompatibility)
+            << "Stored input collection '" << name << "' in podio file '" << fileName_
+            << "' (event entry " << eventIndexOfOpenFrame_
+            << ") has no non-dropped event ProductDescription representing its actual collection name. "
+            << "PodioSource cannot support hidden relation targets that remain frame-owned: "
+            << "every input data collection must be transferred to an event-owned wrapper. "
+            << "Include a ProductDescription and registered collection converter for this collection, "
+            << "or remove it from the file.";
+      }
+    }
+    try {
+      validateInputSubsets(frame_);
+    } catch (cms::Exception& ex) {
+      ex.addContext("Validating subsets in podio file '" + fileName_ + "' (event entry " +
+                    std::to_string(eventIndexOfOpenFrame_) + ")");
+      throw;
     }
   }
 
@@ -134,6 +180,7 @@ namespace c4h {
       if (nextEventIndex_ != eventIndexOfOpenFrame_) {
         frame_ = podioReader_->readFrame("events", nextEventIndex_);
         eventIndexOfOpenFrame_ = nextEventIndex_;
+        validateCollectionOwnership();
       }
       auto const& eventHeaderCollection = frame_.get<edm4hep::EventHeaderCollection>("EventHeader");
       auto const& eventHeader = eventHeaderCollection.at(0);
@@ -146,11 +193,6 @@ namespace c4h {
         processHistoryID_ = readHistoryID(frame_, eventProcessHistoryKey, fileHistories_);
         runHistory = readHistoryID(frame_, runProcessHistoryKey, fileHistories_);
         lumiHistory = readHistoryID(frame_, lumiProcessHistoryKey, fileHistories_);
-        if (fileHistories_.getMapped(processHistoryID_)->empty() || fileHistories_.getMapped(runHistory)->empty() ||
-            fileHistories_.getMapped(lumiHistory)->empty()) {
-          throw Exception(errors::FormatIncompatibility)
-              << "PodioSource cannot replay empty process histories with this framework version";
-        }
         reducedRunHistory = fileHistories_.reducedProcessHistoryID(runHistory);
         auto savedLumi = frame_.getParameter<std::vector<std::string>>(luminosityBlockKey);
         if (!savedLumi || savedLumi->size() != 1) {
@@ -242,7 +284,16 @@ namespace c4h {
     EventAuxiliary eventAuxiliary(EventID(nextRun_, nextLumi_, nextEvent_), "", Timestamp(header.getTimeStamp()), false);
     auto history = processHistoryRegistry.getMapped(processHistoryID_);
     eventAuxiliary.setProcessHistoryID(processHistoryID_);
-    eventPrincipal.fillEventPrincipal(eventAuxiliary, history);
+    if (hasProvenanceMetadata_) {
+      // The stored product -> original BranchID mapping comes from the restored
+      // ProductDescriptions (aliasForBranchID), so events store only provenance records.
+      auto snapshot = restoreEventParentage(frame_, parentages_);
+      edm::ProductProvenanceRetriever retriever(
+          eventPrincipal.streamID().value(), std::make_unique<ParentageProvenanceReader>(std::move(snapshot.records)));
+      eventPrincipal.fillEventPrincipal(eventAuxiliary, history, {}, {}, {}, retriever, nullptr, true);
+    } else {
+      eventPrincipal.fillEventPrincipal(eventAuxiliary, history);
+    }
 
     putOnReadForAllProducts(frame_, *productRegistry_, eventPrincipal, collectionNames_);
   }
